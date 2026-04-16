@@ -16,8 +16,8 @@ const launcherPath = path.join(rootDir, 'Launch-SynthetiqVoice.vbs');
 let mainWindow;
 let tray;
 let workerProcess;
-const popupWidth = 460;
-const popupHeight = 640;
+const popupWidth = 520;
+const popupHeight = 680;
 
 function ensureRuntime() {
   fs.mkdirSync(runtimeDir, { recursive: true });

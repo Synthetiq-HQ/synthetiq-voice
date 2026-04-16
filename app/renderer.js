@@ -11,6 +11,8 @@ const clearEl = document.getElementById('clear');
 const refreshEl = document.getElementById('refresh');
 const findMicEl = document.getElementById('findMic');
 const settingsButtonEl = document.getElementById('settingsButton');
+const startNewEl = document.getElementById('startNew');
+const historyButtonEl = document.getElementById('historyButton');
 const addModeEl = document.getElementById('addMode');
 const transcriptEl = document.getElementById('transcript');
 const workerInfoEl = document.getElementById('workerInfo');
@@ -29,6 +31,8 @@ const downloadModelSelectEl = document.getElementById('downloadModelSelect');
 const downloadModelButtonEl = document.getElementById('downloadModelButton');
 const useRecommendedButtonEl = document.getElementById('useRecommendedButton');
 const modelInfoEl = document.getElementById('modelInfo');
+const orbEl = document.getElementById('orb');
+const waveEls = Array.from(document.querySelectorAll('.wave'));
 
 let settings = {};
 let recording = false;
@@ -46,10 +50,21 @@ function setRecording(value) {
   recording = value;
   recordEl.disabled = value;
   stopEl.disabled = !value;
+  orbEl.classList.toggle('recording', value);
+  waveEls.forEach((wave) => wave.classList.toggle('active', value));
+}
+
+function formatDuration(seconds) {
+  const total = Math.max(0, Math.floor(seconds));
+  const hours = String(Math.floor(total / 3600)).padStart(2, '0');
+  const minutes = String(Math.floor((total % 3600) / 60)).padStart(2, '0');
+  const secs = String(total % 60).padStart(2, '0');
+  return `REC: ${hours}:${minutes}:${secs}`;
 }
 
 function setProgress(mode, text, value = 0) {
   progressTextEl.textContent = text;
+  orbEl.classList.toggle('processing', mode === 'indeterminate' && !recording);
   if (mode === 'indeterminate') {
     progressEl.removeAttribute('value');
   } else {
@@ -72,6 +87,9 @@ function startProgressLoop() {
           ? (Date.now() - operationStartedAt) / 1000
           : Number(status.captured_seconds || 0);
       timerEl.textContent = `${elapsed.toFixed(1)}s`;
+      if (recording) {
+        timerEl.textContent = formatDuration(elapsed);
+      }
       const peak = Number(status.level?.peak || 0);
       levelFillEl.style.width = `${Math.min(100, Math.round(peak * 600))}%`;
       if (recording) {
@@ -114,6 +132,29 @@ function appendTranscript(text) {
     transcriptEl.value = cleaned;
   }
   setEditing(false);
+  saveTranscriptHistory(cleaned);
+}
+
+function saveTranscriptHistory(text) {
+  const key = 'synthetiqVoiceHistory';
+  const existing = JSON.parse(localStorage.getItem(key) || '[]');
+  existing.unshift({
+    text,
+    createdAt: new Date().toISOString()
+  });
+  localStorage.setItem(key, JSON.stringify(existing.slice(0, 25)));
+}
+
+function showHistory() {
+  const existing = JSON.parse(localStorage.getItem('synthetiqVoiceHistory') || '[]');
+  if (!existing.length) {
+    setStatus('No saved transcriptions yet.');
+    return;
+  }
+  const latest = existing[0];
+  transcriptEl.value = latest.text;
+  setEditing(false);
+  setStatus(`Loaded latest transcription from ${new Date(latest.createdAt).toLocaleString()}`);
 }
 
 async function saveSettings() {
@@ -206,6 +247,7 @@ async function startRecording() {
     recordStartedAt = Date.now();
     setRecording(true);
     setDone('');
+    timerEl.textContent = formatDuration(0);
     setProgress('determinate', 'Recording...', 0);
     startProgressLoop();
     setStatus('Recording...');
@@ -225,10 +267,12 @@ async function stopRecording() {
     if (response.text) {
       setProgress('determinate', 'Complete', 100);
       setDone('Done');
+      timerEl.textContent = formatDuration(response.duration || 0);
       setStatus(`Ready. Audio level peak ${Number(response.peak || 0).toFixed(3)}.`);
     } else {
       setProgress('determinate', 'No text', 100);
       setDone('No text');
+      timerEl.textContent = formatDuration(response.duration || 0);
       setStatus(response.reason || `No speech detected. Peak ${Number(response.peak || 0).toFixed(3)}.`);
     }
   } catch (error) {
@@ -254,10 +298,20 @@ clearEl.addEventListener('click', () => {
   setEditing(false);
   setProgress('determinate', 'Idle', 0);
   setDone('');
-  timerEl.textContent = '0.0s';
+  timerEl.textContent = formatDuration(0);
   levelFillEl.style.width = '0%';
   setStatus('Ready');
 });
+startNewEl.addEventListener('click', () => {
+  transcriptEl.value = '';
+  addModeEl.checked = false;
+  setEditing(false);
+  setProgress('determinate', 'Idle', 0);
+  setDone('');
+  timerEl.textContent = formatDuration(0);
+  setStatus('Ready for a new transcription');
+});
+historyButtonEl.addEventListener('click', showHistory);
 editEl.addEventListener('click', () => {
   setEditing(!editing);
 });
