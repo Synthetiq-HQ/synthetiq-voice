@@ -53,7 +53,7 @@ Start the app:
 .\Start-SynthetiqVoice.cmd
 ```
 
-The first model download can take a few minutes. After that, the model is cached locally.
+The first model download can take a few minutes. After that, the model is cached locally. For the best first-run experience, start with `small.en`. Larger models are optional and can take much longer to download.
 
 ## Usage
 

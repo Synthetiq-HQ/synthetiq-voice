@@ -58,6 +58,13 @@ dialog::backdrop {
   font-size: 13px;
 }
 
+.settings-note {
+  margin: 0;
+  color: #5d6873;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
 main {
   display: flex;
   min-height: 100vh;

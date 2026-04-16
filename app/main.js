@@ -260,7 +260,7 @@ ipcMain.handle('worker:models', () => requestWorker('/models'));
 ipcMain.handle('worker:downloadModel', (_event, payload) => requestWorker('/models/download', {
   method: 'POST',
   body: JSON.stringify(payload),
-  timeoutMs: 600000
+  timeoutMs: 1800000
 }));
 ipcMain.handle('worker:configure', (_event, settings) => requestWorker('/settings', {
   method: 'POST',

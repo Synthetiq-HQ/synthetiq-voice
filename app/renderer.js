@@ -27,6 +27,7 @@ const settingsDialogEl = document.getElementById('settingsDialog');
 const startWithWindowsEl = document.getElementById('startWithWindows');
 const downloadModelSelectEl = document.getElementById('downloadModelSelect');
 const downloadModelButtonEl = document.getElementById('downloadModelButton');
+const useRecommendedButtonEl = document.getElementById('useRecommendedButton');
 const modelInfoEl = document.getElementById('modelInfo');
 
 let settings = {};
@@ -34,6 +35,8 @@ let recording = false;
 let editing = false;
 let progressTimer = null;
 let recordStartedAt = 0;
+let operationStartedAt = 0;
+let operationLabel = '';
 
 function setStatus(text) {
   statusEl.textContent = text;
@@ -63,7 +66,11 @@ function startProgressLoop() {
   progressTimer = setInterval(async () => {
     try {
       const status = await fetch('http://127.0.0.1:48731/status').then((r) => r.json());
-      const elapsed = recording ? (Date.now() - recordStartedAt) / 1000 : Number(status.captured_seconds || 0);
+      const elapsed = recording
+        ? (Date.now() - recordStartedAt) / 1000
+        : operationStartedAt
+          ? (Date.now() - operationStartedAt) / 1000
+          : Number(status.captured_seconds || 0);
       timerEl.textContent = `${elapsed.toFixed(1)}s`;
       const peak = Number(status.level?.peak || 0);
       levelFillEl.style.width = `${Math.min(100, Math.round(peak * 600))}%`;
@@ -71,6 +78,8 @@ function startProgressLoop() {
         setProgress('determinate', 'Recording...', Math.min(100, elapsed % 100));
       } else if (status.status && status.status !== 'ready') {
         setProgress('indeterminate', status.status);
+      } else if (operationLabel) {
+        setProgress('indeterminate', operationLabel);
       }
     } catch {
       // Keep UI usable even if one poll fails.
@@ -308,6 +317,14 @@ startWithWindowsEl.addEventListener('change', async () => {
 downloadModelButtonEl.addEventListener('click', async () => {
   try {
     const selected = downloadModelSelectEl.value;
+    const heavy = ['medium.en', 'distil-large-v3', 'large-v3-turbo'].includes(selected);
+    if (heavy) {
+      setStatus(`${selected} is a large model. First download can take several minutes. Small English is recommended for speed.`);
+    }
+    operationStartedAt = Date.now();
+    operationLabel = `Downloading/loading ${selected}...`;
+    startProgressLoop();
+    downloadModelButtonEl.disabled = true;
     setProgress('indeterminate', `Downloading ${selected}...`);
     setStatus(`Downloading/loading ${selected}. This may take a few minutes the first time.`);
     const result = await window.dictation.downloadModel({
@@ -321,7 +338,20 @@ downloadModelButtonEl.addEventListener('click', async () => {
     setStatus(`Model ready in ${Number(result.seconds || 0).toFixed(1)}s`);
   } catch (error) {
     setStatus(`Model download failed: ${error.message}`);
+  } finally {
+    downloadModelButtonEl.disabled = false;
+    operationStartedAt = 0;
+    operationLabel = '';
+    setTimeout(stopProgressLoop, 1200);
   }
+});
+useRecommendedButtonEl.addEventListener('click', async () => {
+  modelEl.value = 'small.en';
+  downloadModelSelectEl.value = 'small.en';
+  computeDeviceEl.value = 'cpu';
+  await saveSettings();
+  setProgress('determinate', 'Recommended model selected', 100);
+  setStatus('Using Small English on CPU. This is the recommended fast local dictation setup.');
 });
 
 for (const el of [deviceEl, modelEl, computeDeviceEl, addModeEl]) {
