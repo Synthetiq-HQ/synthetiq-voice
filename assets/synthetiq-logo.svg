@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Synthetiq Voice logo">
+  <rect width="256" height="256" rx="24" fill="#eef3f8"/>
+  <path fill="#24334d" d="M52 55c0-8 6-14 14-14h124c8 0 14 6 14 14v142c0 8-6 14-14 14H66c-8 0-14-6-14-14v-18h34c4 0 7-3 7-7v-22c0-4-3-7-7-7H52V55Zm37 21v62c0 4 3 7 7 7h36c4 0 7 3 7 7v31c0 4 3 7 7 7h31c4 0 7-3 7-7V76c0-4-3-7-7-7H96c-4 0-7 3-7 7Z"/>
+  <path fill="#24334d" d="M52 156h23c4 0 7 3 7 7v17c0 4-3 7-7 7H52v-31Z"/>
+  <rect x="76" y="110" width="9" height="24" rx="5" fill="#ee5d66"/>
+  <rect x="96" y="100" width="10" height="44" rx="5" fill="#d95f88"/>
+  <rect x="117" y="89" width="10" height="66" rx="5" fill="#b765be"/>
+  <rect x="138" y="75" width="10" height="93" rx="5" fill="#9b68d2"/>
+  <rect x="159" y="89" width="10" height="66" rx="5" fill="#7b72df"/>
+  <rect x="180" y="101" width="10" height="43" rx="5" fill="#6385ef"/>
+  <rect x="201" y="111" width="9" height="23" rx="5" fill="#5595f6"/>
+</svg>

@@ -13,6 +13,9 @@ const findMicEl = document.getElementById('findMic');
 const settingsButtonEl = document.getElementById('settingsButton');
 const startNewEl = document.getElementById('startNew');
 const historyButtonEl = document.getElementById('historyButton');
+const dictationViewEl = document.getElementById('dictationView');
+const historyViewEl = document.getElementById('historyView');
+const historyTextEl = document.getElementById('historyText');
 const addModeEl = document.getElementById('addMode');
 const transcriptEl = document.getElementById('transcript');
 const workerInfoEl = document.getElementById('workerInfo');
@@ -158,16 +161,26 @@ function saveTranscriptHistory(text) {
   localStorage.setItem(key, JSON.stringify(existing.slice(0, 25)));
 }
 
+function setView(viewName) {
+  const historyActive = viewName === 'history';
+  dictationViewEl.classList.toggle('active', !historyActive);
+  historyViewEl.classList.toggle('active', historyActive);
+  startNewEl.classList.toggle('active', !historyActive);
+  historyButtonEl.classList.toggle('active', historyActive);
+}
+
 function showHistory() {
   const existing = JSON.parse(localStorage.getItem('synthetiqVoiceHistory') || '[]');
   if (!existing.length) {
-    setStatus('No saved transcriptions yet.');
+    historyTextEl.value = '';
+    setView('history');
     return;
   }
-  const latest = existing[0];
-  transcriptEl.value = latest.text;
-  setEditing(false);
-  setStatus(`Loaded latest transcription from ${new Date(latest.createdAt).toLocaleString()}`);
+  historyTextEl.value = existing.map((entry, index) => {
+    const stamp = new Date(entry.createdAt).toLocaleString();
+    return `${index + 1}. ${stamp}\n${entry.text}`;
+  }).join('\n\n------------------------------\n\n');
+  setView('history');
 }
 
 async function saveSettings() {
@@ -316,6 +329,7 @@ clearEl.addEventListener('click', () => {
   setStatus('Ready');
 });
 startNewEl.addEventListener('click', () => {
+  setView('dictation');
   transcriptEl.value = '';
   addModeEl.checked = false;
   setEditing(false);

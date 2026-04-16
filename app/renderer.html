@@ -10,8 +10,11 @@
   <main class="shell">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark">S</div>
-        <span>Synthetiq</span>
+        <img class="brand-logo" src="../assets/synthetiq-logo.svg" alt="">
+        <div class="brand-copy">
+          <span>Synthetiq</span>
+          <small>Voice</small>
+        </div>
       </div>
 
       <nav class="nav">
@@ -34,84 +37,92 @@
     </aside>
 
     <section class="workspace">
-      <header class="topbar">
-        <div class="field-group">
-          <div class="field-title">Input & Model</div>
-          <div class="input-strip">
-            <label class="select-wrap mic-select">
-              <span>Mic</span>
-              <select id="device"></select>
-            </label>
-            <label class="select-wrap model-select">
-              <span>Model</span>
-              <select id="model">
-                <option value="small.en">Small English</option>
-                <option value="base.en">Base English</option>
-                <option value="medium.en">Medium English</option>
-                <option value="distil-large-v3">Distil Large v3</option>
-                <option value="large-v3-turbo">Large v3 Turbo</option>
-              </select>
-            </label>
-            <label class="select-wrap compute-select">
-              <span>Compute</span>
-              <select id="computeDevice">
-                <option value="cpu">CPU</option>
-                <option value="auto">Auto</option>
-                <option value="cuda">CUDA</option>
-              </select>
-            </label>
-            <button id="findMic" class="icon-button" title="Find active microphone" type="button">Scan</button>
-            <button id="refresh" class="icon-button" title="Refresh devices" type="button">Refresh</button>
+      <section id="dictationView" class="view active">
+        <header class="topbar">
+          <div class="field-group">
+            <div class="field-title">Input & Model</div>
+            <div class="input-strip">
+              <label class="select-wrap mic-select">
+                <span>Mic</span>
+                <select id="device"></select>
+              </label>
+              <label class="select-wrap model-select">
+                <span>Model</span>
+                <select id="model">
+                  <option value="small.en">Small English</option>
+                  <option value="base.en">Base English</option>
+                  <option value="medium.en">Medium English</option>
+                  <option value="distil-large-v3">Distil Large v3</option>
+                  <option value="large-v3-turbo">Large v3 Turbo</option>
+                </select>
+              </label>
+              <label class="select-wrap compute-select">
+                <span>Compute</span>
+                <select id="computeDevice">
+                  <option value="cpu">CPU</option>
+                  <option value="auto">Auto</option>
+                  <option value="cuda">CUDA</option>
+                </select>
+              </label>
+              <div class="input-buttons">
+                <button id="findMic" class="icon-button" title="Find active microphone" type="button">Scan</button>
+                <button id="refresh" class="icon-button" title="Refresh devices" type="button">Refresh</button>
+              </div>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <section class="record-card">
-        <h1>Synthetiq Voice</h1>
-        <div class="visualizer" aria-hidden="true">
-          <div class="wave wave-left">
-            <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        <section class="record-card">
+          <h1>Synthetiq Voice</h1>
+          <div class="visualizer" aria-hidden="true">
+            <div class="wave wave-left">
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <div id="orb" class="orb"></div>
+            <div class="wave wave-right">
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
           </div>
-          <div id="orb" class="orb"></div>
-          <div class="wave wave-right">
-            <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          <div id="timer" class="timer">REC: 00:00:00</div>
+          <div class="record-actions">
+            <button id="record" class="primary">Record</button>
+            <button id="stop" disabled>Stop</button>
           </div>
-        </div>
-        <div id="timer" class="timer">REC: 00:00:00</div>
-        <div class="record-actions">
-          <button id="record" class="primary">Record</button>
-          <button id="stop" disabled>Stop</button>
-        </div>
+        </section>
+
+        <section class="progress-area">
+          <div class="progress-label">
+            <span id="progressText">Idle</span>
+            <span id="doneMark" aria-live="polite"></span>
+          </div>
+          <progress id="progress" max="100" value="0"></progress>
+          <div class="meter-row">
+            <span>Mic level</span>
+            <div class="meter"><div id="levelFill"></div></div>
+          </div>
+        </section>
+
+        <section class="actions">
+          <button id="clear">Clear</button>
+          <button id="edit" disabled>Edit Transcript</button>
+          <button id="copy">Copy Text</button>
+          <button id="paste">Paste</button>
+          <label class="toggle">
+            <input id="addMode" type="checkbox">
+            Add to Document
+          </label>
+        </section>
+
+        <section class="transcript-panel">
+          <textarea id="transcript" spellcheck="true" readonly placeholder="Your transcribed text will appear here. Start recording to begin."></textarea>
+        </section>
+
+        <p id="status" class="status-line">Starting worker...</p>
       </section>
 
-      <section class="progress-area">
-        <div class="progress-label">
-          <span id="progressText">Idle</span>
-          <span id="doneMark" aria-live="polite"></span>
-        </div>
-        <progress id="progress" max="100" value="0"></progress>
-        <div class="meter-row">
-          <span>Mic level</span>
-          <div class="meter"><div id="levelFill"></div></div>
-        </div>
+      <section id="historyView" class="view history-view">
+        <textarea id="historyText" readonly placeholder="Your transcription history will appear here after you record something."></textarea>
       </section>
-
-      <section class="actions">
-        <button id="clear">Clear</button>
-        <button id="edit" disabled>Edit Transcript</button>
-        <button id="copy">Copy Text</button>
-        <button id="paste">Paste</button>
-        <label class="toggle">
-          <input id="addMode" type="checkbox">
-          Add to Document
-        </label>
-      </section>
-
-      <section class="transcript-panel">
-        <textarea id="transcript" spellcheck="true" readonly placeholder="Your transcribed text will appear here. Start recording to begin."></textarea>
-      </section>
-
-      <p id="status" class="status-line">Starting worker...</p>
     </section>
   </main>
 
