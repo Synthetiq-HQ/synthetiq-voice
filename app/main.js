@@ -270,7 +270,7 @@ function toggleWindow() {
 }
 
 function createTray() {
-  const image = nativeImage.createFromPath(path.join(rootDir, 'assets', 'tray-icon.png')).resize({ width: 18, height: 18 });
+  const image = nativeImage.createFromPath(path.join(rootDir, 'assets', 'synthetiq-voice-logo.png')).resize({ width: 18, height: 18 });
   tray = new Tray(image);
   tray.setToolTip(productName);
   tray.setContextMenu(Menu.buildFromTemplate([

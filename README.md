@@ -1,6 +1,6 @@
 # Synthetiq Voice
 
-![Synthetiq Voice logo](assets/synthetiq-logo.svg)
+![Synthetiq Voice logo](assets/synthetiq-voice-logo.png)
 
 Synthetiq Voice is a privacy-first Windows dictation app that runs speech-to-text locally on your device. It lives in the system tray, opens as a compact flyout above the tray, records from your microphone, transcribes locally, and gives you editable text that can be copied or pasted into any app.
 
