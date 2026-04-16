@@ -1,0 +1,13 @@
+node_modules/
+.venv/
+runtime/
+backups/
+__pycache__/
+*.pyc
+*.log
+*.wav
+dist/
+out/
+.env
+.DS_Store
+Thumbs.db

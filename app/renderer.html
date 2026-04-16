@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Synthetiq Voice</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Synthetiq Voice</h1>
+        <p id="status">Starting worker...</p>
+      </div>
+      <div class="header-actions">
+        <button id="settingsButton">Settings</button>
+        <button id="findMic">Find Active Mic</button>
+        <button id="refresh">Refresh Devices</button>
+      </div>
+    </header>
+
+    <section class="controls">
+      <label>
+        Microphone
+        <select id="device"></select>
+      </label>
+      <label>
+        Model
+        <select id="model">
+          <option value="small.en">Small English - fast, recommended</option>
+          <option value="base.en">Base English - fastest</option>
+          <option value="medium.en">Medium English - better, slower</option>
+          <option value="distil-large-v3">Distil Large v3 - strong</option>
+          <option value="large-v3-turbo">Large v3 Turbo - strongest</option>
+        </select>
+      </label>
+      <label>
+        Compute
+        <select id="computeDevice">
+          <option value="cpu">cpu</option>
+          <option value="auto">auto</option>
+          <option value="cuda">cuda</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="actions">
+      <button id="record" class="primary">Record</button>
+      <button id="stop" disabled>Stop</button>
+      <button id="clear">Clear</button>
+      <button id="edit" disabled>Edit</button>
+      <button id="copy">Copy</button>
+      <button id="paste">Paste</button>
+      <label class="toggle">
+        <input id="addMode" type="checkbox">
+        Add To
+      </label>
+    </section>
+
+    <section class="progress-area">
+      <div class="progress-label">
+        <span id="progressText">Idle</span>
+        <span id="timer">0.0s</span>
+      </div>
+      <progress id="progress" max="100" value="0"></progress>
+      <div class="meter-row">
+        <span>Mic level</span>
+        <div class="meter"><div id="levelFill"></div></div>
+        <span id="doneMark" aria-live="polite"></span>
+      </div>
+    </section>
+
+    <textarea id="transcript" spellcheck="true" readonly placeholder="Your transcription will appear here."></textarea>
+
+    <footer>
+      <span id="workerInfo">Local only. Audio is deleted after transcription unless debug mode is enabled.</span>
+    </footer>
+  </main>
+
+  <dialog id="setupDialog">
+    <form method="dialog" class="dialog-body">
+      <h2>Set Up Synthetiq Voice</h2>
+      <p>Private, on-device dictation for quick messages, coding with AI, notes, and editable text.</p>
+      <label class="dialog-check">
+        <input id="setupAutoStart" type="checkbox">
+        Start Synthetiq Voice with Windows
+      </label>
+      <label>
+        Default model
+        <select id="setupModel">
+          <option value="small.en">Small English - recommended under 1 GB</option>
+          <option value="base.en">Base English - fastest</option>
+          <option value="medium.en">Medium English - higher accuracy</option>
+          <option value="large-v3-turbo">Large v3 Turbo - best quality</option>
+        </select>
+      </label>
+      <div class="dialog-actions">
+        <button id="finishSetup" class="primary" value="default">Finish Setup</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="settingsDialog">
+    <form method="dialog" class="dialog-body">
+      <h2>Settings</h2>
+      <label class="dialog-check">
+        <input id="startWithWindows" type="checkbox">
+        Start with Windows
+      </label>
+      <label>
+        Download / preload model
+        <select id="downloadModelSelect">
+          <option value="base.en">Base English - fastest, smallest</option>
+          <option value="small.en">Small English - recommended</option>
+          <option value="medium.en">Medium English - better, larger</option>
+          <option value="distil-large-v3">Distil Large v3 - strong</option>
+          <option value="large-v3-turbo">Large v3 Turbo - strongest</option>
+        </select>
+      </label>
+      <button id="downloadModelButton" type="button">Download Model</button>
+      <div id="modelInfo" class="model-info"></div>
+      <div class="dialog-actions">
+        <button value="cancel">Close</button>
+      </div>
+    </form>
+  </dialog>
+  <script src="./renderer.js"></script>
+</body>
+</html>

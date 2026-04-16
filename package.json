@@ -1,0 +1,21 @@
+{
+  "name": "synthetiq-voice",
+  "version": "0.1.0",
+  "description": "Privacy-first local Windows dictation app by Synthetiq.",
+  "main": "app/main.js",
+  "private": false,
+  "license": "MIT",
+  "author": "Synthetiq",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Synthetiq-HQ/synthetiq-voice.git"
+  },
+  "scripts": {
+    "start": "electron .",
+    "check": "node scripts/check-app.js"
+  },
+  "dependencies": {
+    "electron": "^39.2.6"
+  },
+  "devDependencies": {}
+}
