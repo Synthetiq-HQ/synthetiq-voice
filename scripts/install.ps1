@@ -11,4 +11,4 @@ if (!(Test-Path ".venv\Scripts\python.exe")) {
 npm install
 npm run check
 
-Write-Host "Install complete. Start with: .\Start-LocalDictation.cmd"
+Write-Host "Install complete. Start with: .\Start-SynthetiqVoice.cmd"
