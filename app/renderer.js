@@ -250,7 +250,10 @@ async function boot() {
   try {
     settings = await window.dictation.getSettings();
     modelEl.value = settings.modelSize || 'small.en';
-    computeDeviceEl.value = settings.computeDevice || 'cpu';
+    computeDeviceEl.value = settings.computeDevice === 'cuda' ? 'cpu' : (settings.computeDevice || 'cpu');
+    if (settings.computeDevice === 'cuda') {
+      settings = await window.dictation.setSettings({ ...settings, computeDevice: 'cpu', computeType: 'int8' });
+    }
     addModeEl.checked = Boolean(settings.addMode);
     startWithWindowsEl.checked = Boolean(settings.startWithWindows);
     setupAutoStartEl.checked = Boolean(settings.startWithWindows);
@@ -450,7 +453,7 @@ async function activateModel(modelId) {
     setStatus(`Downloading/loading ${selected}. This may take a few minutes the first time.`);
     const result = await window.dictation.downloadModel({
       modelSize: selected,
-      computeDevice: computeDeviceEl.value || 'cpu',
+      computeDevice: computeDeviceEl.value === 'cuda' ? 'cpu' : (computeDeviceEl.value || 'cpu'),
       computeType: 'int8'
     });
     await saveSettings();
@@ -487,7 +490,10 @@ window.dictation.onTrayRecord(startRecording);
 window.dictation.onTrayStop(stopRecording);
 window.dictation.onWorkerExit((code) => {
   setRecording(false);
-  setStatus(`Worker stopped (${code})`);
+  stopProgressLoop();
+  setProgress('determinate', 'Worker restarting', 0);
+  setDone('');
+  setStatus(`Speech engine restarted after an error${code ? ` (${code})` : ''}. Use CPU mode for stability.`);
 });
 
 boot();

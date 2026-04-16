@@ -16,6 +16,7 @@ const launcherPath = path.join(rootDir, 'Launch-SynthetiqVoice.vbs');
 let mainWindow;
 let tray;
 let workerProcess;
+let workerRestartTimer;
 const popupWidth = 520;
 const popupHeight = 680;
 
@@ -80,6 +81,10 @@ function startWorker() {
   if (workerProcess && !workerProcess.killed) {
     return;
   }
+  if (workerRestartTimer) {
+    clearTimeout(workerRestartTimer);
+    workerRestartTimer = null;
+  }
 
   const env = {
     ...process.env,
@@ -103,9 +108,16 @@ function startWorker() {
   });
   workerProcess.on('exit', (code) => {
     console.log(`Worker exited: ${code}`);
+    log(`worker exited with code ${code}`);
     workerProcess = null;
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('worker-exit', code);
+    }
+    if (!app.isQuitting) {
+      workerRestartTimer = setTimeout(() => {
+        log('restarting worker');
+        startWorker();
+      }, 1200);
     }
   });
 }
@@ -301,6 +313,9 @@ app.on('before-quit', () => {
   app.isQuitting = true;
   if (workerProcess && !workerProcess.killed) {
     workerProcess.kill();
+  }
+  if (workerRestartTimer) {
+    clearTimeout(workerRestartTimer);
   }
 });
 

@@ -187,6 +187,9 @@ def choose_compute() -> tuple[str, str]:
     if settings.computeDevice == "cpu":
         return "cpu", "int8"
     if settings.computeDevice == "cuda":
+        if os.environ.get("SYNTHTIQ_VOICE_ENABLE_CUDA") != "1":
+            log("CUDA requested but disabled for stability; falling back to CPU INT8")
+            return "cpu", "int8"
         return "cuda", "float16"
     return "cpu", "int8"
 
@@ -209,6 +212,7 @@ def load_model():
         worker_status = "ready"
         return model
     except Exception as cuda_error:
+        log(f"model load failed on {device}: {cuda_error}")
         if device != "cuda":
             worker_status = "ready"
             raise HTTPException(status_code=500, detail=str(cuda_error))
