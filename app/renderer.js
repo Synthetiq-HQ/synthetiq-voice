@@ -18,7 +18,6 @@ const historyViewEl = document.getElementById('historyView');
 const historyTextEl = document.getElementById('historyText');
 const addModeEl = document.getElementById('addMode');
 const transcriptEl = document.getElementById('transcript');
-const workerInfoEl = document.getElementById('workerInfo');
 const progressTextEl = document.getElementById('progressText');
 const timerEl = document.getElementById('timer');
 const progressEl = document.getElementById('progress');
@@ -30,8 +29,6 @@ const setupModelEl = document.getElementById('setupModel');
 const finishSetupEl = document.getElementById('finishSetup');
 const settingsDialogEl = document.getElementById('settingsDialog');
 const startWithWindowsEl = document.getElementById('startWithWindows');
-const downloadModelSelectEl = document.getElementById('downloadModelSelect');
-const downloadModelButtonEl = document.getElementById('downloadModelButton');
 const useRecommendedButtonEl = document.getElementById('useRecommendedButton');
 const modelInfoEl = document.getElementById('modelInfo');
 const orbEl = document.getElementById('orb');
@@ -45,6 +42,7 @@ let progressTimer = null;
 let recordStartedAt = 0;
 let operationStartedAt = 0;
 let operationLabel = '';
+let modelCatalog = [];
 
 function setStatus(text) {
   statusEl.textContent = text;
@@ -196,9 +194,35 @@ async function saveSettings() {
 }
 
 function renderModelInfo(models) {
-  modelInfoEl.innerHTML = models.map((model) => (
-    `<p><strong>${model.id}</strong> (${model.size}) - ${model.speed}, ${model.quality}. ${model.notes}</p>`
-  )).join('');
+  modelCatalog = models;
+  modelInfoEl.innerHTML = models.map((model) => {
+    const status = model.active ? 'Active' : model.downloaded ? 'Downloaded' : 'Not downloaded';
+    const action = model.active ? 'Using' : model.downloaded ? 'Use' : 'Download';
+    const recommended = model.recommended ? '<span class="pill recommended">Recommended</span>' : '';
+    return `
+      <article class="model-card ${model.active ? 'active' : ''}">
+        <div class="model-card-top">
+          <div>
+            <strong>${model.label}</strong>
+            <span>${model.id}</span>
+          </div>
+          ${recommended}
+        </div>
+        <p>${model.notes}</p>
+        <div class="model-meta">
+          <span>${model.size}</span>
+          <span>${model.speed}</span>
+          <span>${status}</span>
+        </div>
+        <button class="model-action" type="button" data-model="${model.id}" ${model.active ? 'disabled' : ''}>${action}</button>
+      </article>
+    `;
+  }).join('');
+}
+
+async function refreshModels() {
+  const modelResponse = await window.dictation.models();
+  renderModelInfo(modelResponse.models || []);
 }
 
 async function loadDevices() {
@@ -231,13 +255,11 @@ async function boot() {
     startWithWindowsEl.checked = Boolean(settings.startWithWindows);
     setupAutoStartEl.checked = Boolean(settings.startWithWindows);
     setupModelEl.value = settings.modelSize || 'small.en';
-    downloadModelSelectEl.value = settings.modelSize || 'small.en';
 
     let ready = false;
     for (let i = 0; i < 40; i += 1) {
       try {
-        const health = await window.dictation.health();
-        workerInfoEl.textContent = `Worker ready. Engine: ${health.engine}.`;
+        await window.dictation.health();
         ready = true;
         break;
       } catch {
@@ -248,8 +270,7 @@ async function boot() {
 
     await loadDevices();
     try {
-      const modelResponse = await window.dictation.models();
-      renderModelInfo(modelResponse.models || []);
+      await refreshModels();
     } catch {
       modelInfoEl.textContent = 'Model list unavailable until the worker is ready.';
     }
@@ -366,7 +387,11 @@ findMicEl.addEventListener('click', async () => {
 settingsButtonEl.addEventListener('click', async () => {
   settings = await window.dictation.getSettings();
   startWithWindowsEl.checked = Boolean(settings.startWithWindows);
-  downloadModelSelectEl.value = settings.modelSize || 'small.en';
+  try {
+    await refreshModels();
+  } catch {
+    modelInfoEl.textContent = 'Model list unavailable until the worker is ready.';
+  }
   settingsDialogEl.showModal();
 });
 finishSetupEl.addEventListener('click', async (event) => {
@@ -395,9 +420,25 @@ startWithWindowsEl.addEventListener('change', async () => {
   startWithWindowsEl.checked = Boolean(result.enabled);
   setStatus(result.ok ? 'Startup setting updated' : 'Could not update startup setting');
 });
-downloadModelButtonEl.addEventListener('click', async () => {
+async function activateModel(modelId) {
   try {
-    const selected = downloadModelSelectEl.value;
+    const selected = modelId;
+    const model = modelCatalog.find((item) => item.id === selected);
+    if (model?.active) {
+      setStatus(`${model.label} is already active.`);
+      return;
+    }
+
+    modelEl.value = selected;
+    await saveSettings();
+
+    if (model?.downloaded) {
+      await refreshModels();
+      setProgress('determinate', 'Model selected', 100);
+      setStatus(`Using ${model.label}.`);
+      return;
+    }
+
     const heavy = ['medium.en', 'distil-large-v3', 'large-v3-turbo'].includes(selected);
     if (heavy) {
       setStatus(`${selected} is a large model. First download can take several minutes. Small English is recommended for speed.`);
@@ -405,7 +446,6 @@ downloadModelButtonEl.addEventListener('click', async () => {
     operationStartedAt = Date.now();
     operationLabel = `Downloading/loading ${selected}...`;
     startProgressLoop();
-    downloadModelButtonEl.disabled = true;
     setProgress('indeterminate', `Downloading ${selected}...`);
     setStatus(`Downloading/loading ${selected}. This may take a few minutes the first time.`);
     const result = await window.dictation.downloadModel({
@@ -413,26 +453,30 @@ downloadModelButtonEl.addEventListener('click', async () => {
       computeDevice: computeDeviceEl.value || 'cpu',
       computeType: 'int8'
     });
-    modelEl.value = selected;
     await saveSettings();
+    await refreshModels();
     setProgress('determinate', 'Model ready', 100);
     setStatus(`Model ready in ${Number(result.seconds || 0).toFixed(1)}s`);
   } catch (error) {
     setStatus(`Model download failed: ${error.message}`);
   } finally {
-    downloadModelButtonEl.disabled = false;
     operationStartedAt = 0;
     operationLabel = '';
     setTimeout(stopProgressLoop, 1200);
   }
+}
+
+modelInfoEl.addEventListener('click', async (event) => {
+  const button = event.target.closest('.model-action');
+  if (!button) return;
+  button.disabled = true;
+  await activateModel(button.dataset.model);
+  button.disabled = false;
 });
+
 useRecommendedButtonEl.addEventListener('click', async () => {
-  modelEl.value = 'small.en';
-  downloadModelSelectEl.value = 'small.en';
   computeDeviceEl.value = 'cpu';
-  await saveSettings();
-  setProgress('determinate', 'Recommended model selected', 100);
-  setStatus('Using Small English on CPU. This is the recommended fast local dictation setup.');
+  await activateModel('small.en');
 });
 
 for (const el of [deviceEl, modelEl, computeDeviceEl, addModeEl]) {

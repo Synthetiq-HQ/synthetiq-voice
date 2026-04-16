@@ -31,9 +31,6 @@
         <span>Settings</span>
       </button>
 
-      <div class="worker-card">
-        <span id="workerInfo">Worker: starting</span>
-      </div>
     </aside>
 
     <section class="workspace">
@@ -156,22 +153,14 @@
         <input id="startWithWindows" type="checkbox">
         Start with Windows
       </label>
-      <label>
-        Download / preload model
-        <select id="downloadModelSelect">
-          <option value="base.en">Base English - fastest, smallest</option>
-          <option value="small.en">Small English - recommended</option>
-          <option value="medium.en">Medium English - better, larger</option>
-          <option value="distil-large-v3">Distil Large v3 - strong</option>
-          <option value="large-v3-turbo">Large v3 Turbo - strongest</option>
-        </select>
-      </label>
-      <p class="settings-note">
-        For quick dictation, use Small English. Larger models can take a long time to download the first time and are not ideal for instant tray use.
-      </p>
-      <button id="downloadModelButton" type="button">Download Model</button>
-      <button id="useRecommendedButton" type="button">Use Recommended Fast Model</button>
-      <div id="modelInfo" class="model-info"></div>
+      <section class="settings-section">
+        <div class="settings-heading">
+          <span>Voice model</span>
+          <button id="useRecommendedButton" type="button">Use Recommended Fast</button>
+        </div>
+        <p class="settings-note">Small English is the fastest reliable option for local dictation. Larger models are optional and may take longer to download or run.</p>
+        <div id="modelInfo" class="model-grid"></div>
+      </section>
       <div class="dialog-actions">
         <button value="cancel">Close</button>
       </div>

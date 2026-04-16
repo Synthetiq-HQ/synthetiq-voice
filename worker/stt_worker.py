@@ -134,6 +134,23 @@ MODEL_CATALOG = [
     },
 ]
 
+MODEL_CACHE_DIRS = {
+    "base.en": ["models--Systran--faster-whisper-base.en"],
+    "small.en": ["models--Systran--faster-whisper-small.en"],
+    "medium.en": ["models--Systran--faster-whisper-medium.en"],
+    "distil-large-v3": ["models--Systran--faster-distil-whisper-large-v3"],
+    "large-v3-turbo": [
+        "models--mobiuslabsgmbh--faster-whisper-large-v3-turbo",
+        "models--mobiuslabsgmbh--faster-whisper-large-v3-turbo-ct2",
+        "models--Systran--faster-whisper-large-v3-turbo",
+    ],
+}
+
+
+def model_is_downloaded(model_id: str) -> bool:
+    cache_root = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")) / "hub"
+    return any((cache_root / name).exists() for name in MODEL_CACHE_DIRS.get(model_id, []))
+
 
 def input_devices():
     raw_devices = sd.query_devices()
@@ -295,7 +312,17 @@ def devices():
 
 @app.get("/models")
 def models():
-    return {"models": MODEL_CATALOG, "active": model_key}
+    rows = []
+    active_model = model_key[0] if model_key else settings.modelSize
+    for item in MODEL_CATALOG:
+        rows.append(
+            {
+                **item,
+                "downloaded": model_is_downloaded(item["id"]),
+                "active": item["id"] == active_model,
+            }
+        )
+    return {"models": rows, "active": model_key, "selected": settings.modelSize}
 
 
 @app.post("/models/download")

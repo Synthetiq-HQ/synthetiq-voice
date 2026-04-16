@@ -132,13 +132,6 @@ button.primary {
   padding: 0;
 }
 
-.worker-card {
-  margin-top: 10px;
-  color: #41505f;
-  font-size: 11px;
-  line-height: 1.35;
-}
-
 .workspace {
   display: flex;
   min-width: 0;
@@ -441,7 +434,7 @@ textarea[readonly] {
 }
 
 dialog {
-  width: min(420px, calc(100vw - 24px));
+  width: min(450px, calc(100vw - 24px));
   border: 1px solid #c7cdd4;
   border-radius: 8px;
   padding: 0;
@@ -484,20 +477,39 @@ dialog::backdrop {
   gap: 8px;
 }
 
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-weight: 800;
+}
+
+.settings-heading button {
+  min-height: 32px;
+  padding: 0 10px;
+  background: #0b6bcb;
+  color: #ffffff;
+}
+
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
 }
 
-.model-info {
-  max-height: 160px;
+.model-grid {
+  display: grid;
+  max-height: 330px;
   overflow: auto;
-  border: 1px solid #d8dde3;
-  border-radius: 8px;
-  padding: 10px;
-  color: #40505f;
-  font-size: 13px;
+  gap: 8px;
+  padding-right: 2px;
 }
 
 .settings-note {
@@ -505,6 +517,75 @@ dialog::backdrop {
   color: #5d6873;
   font-size: 13px;
   line-height: 1.35;
+}
+
+.model-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #d8dde3;
+  border-radius: 8px;
+  padding: 10px;
+  background: #f8fafc;
+}
+
+.model-card.active {
+  border-color: rgba(11, 107, 203, 0.42);
+  background: #eef6ff;
+}
+
+.model-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.model-card strong,
+.model-card span {
+  display: block;
+}
+
+.model-card strong {
+  font-size: 14px;
+}
+
+.model-card-top span {
+  color: #65717d;
+  font-size: 12px;
+}
+
+.model-card p {
+  margin: 0;
+  color: #4d5965;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.model-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.model-meta span,
+.pill {
+  border-radius: 8px;
+  background: #e9eef3;
+  padding: 4px 7px;
+  color: #40505f;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.pill.recommended {
+  height: fit-content;
+  background: #dff2e7;
+  color: #126c39;
+}
+
+.model-action {
+  height: 32px;
+  justify-self: end;
+  padding: 0 12px;
 }
 
 @keyframes spin {
