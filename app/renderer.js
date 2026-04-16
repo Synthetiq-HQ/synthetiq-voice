@@ -33,6 +33,7 @@ const useRecommendedButtonEl = document.getElementById('useRecommendedButton');
 const modelInfoEl = document.getElementById('modelInfo');
 const orbEl = document.getElementById('orb');
 const waveEls = Array.from(document.querySelectorAll('.wave'));
+const waveBars = Array.from(document.querySelectorAll('.wave span'));
 
 let settings = {};
 let recording = false;
@@ -51,7 +52,18 @@ function setRecording(value) {
   recordEl.disabled = value;
   stopEl.disabled = !value;
   orbEl.classList.toggle('recording', value);
-  waveEls.forEach((wave) => wave.classList.toggle('active', value));
+  if (!value) {
+    setAudioVisualLevel(0);
+  }
+}
+
+function setAudioVisualLevel(peak) {
+  const normalized = Math.max(0, Math.min(1, peak * 260));
+  orbEl.style.setProperty('--audio-scale', String(normalized));
+  waveBars.forEach((bar, index) => {
+    const offset = 0.72 + ((index % 4) * 0.12);
+    bar.style.setProperty('--audio-scale', String(Math.min(1, normalized * offset)));
+  });
 }
 
 function formatDuration(seconds) {
@@ -92,6 +104,7 @@ function startProgressLoop() {
       }
       const peak = Number(status.level?.peak || 0);
       levelFillEl.style.width = `${Math.min(100, Math.round(peak * 600))}%`;
+      setAudioVisualLevel(recording ? peak : 0);
       if (recording) {
         setProgress('determinate', 'Recording...', Math.min(100, elapsed % 100));
       } else if (status.status && status.status !== 'ready') {
