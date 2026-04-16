@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import os
 import queue
+import shutil
 import tempfile
 import threading
 import time
 import wave
 import traceback
+import gc
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Optional
@@ -36,12 +38,18 @@ class Settings(BaseModel):
     computeType: str = "int8"
     language: str = "en"
     debugKeepAudio: bool = False
+    developerMode: bool = False
+    developerCudaEnabled: bool = False
 
 
 class ModelDownloadRequest(BaseModel):
     modelSize: str
     computeDevice: str = "cpu"
     computeType: str = "int8"
+
+
+class ModelDeleteRequest(BaseModel):
+    modelSize: str
 
 
 class StartRequest(BaseModel):
@@ -152,6 +160,12 @@ def model_is_downloaded(model_id: str) -> bool:
     return any((cache_root / name).exists() for name in MODEL_CACHE_DIRS.get(model_id, []))
 
 
+def model_cache_paths(model_id: str) -> list[Path]:
+    cache_root = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")) / "hub"
+    allowed_names = MODEL_CACHE_DIRS.get(model_id, [])
+    return [cache_root / name for name in allowed_names if (cache_root / name).exists()]
+
+
 def input_devices():
     raw_devices = sd.query_devices()
     defaults = sd.default.device
@@ -187,7 +201,10 @@ def choose_compute() -> tuple[str, str]:
     if settings.computeDevice == "cpu":
         return "cpu", "int8"
     if settings.computeDevice == "cuda":
-        if os.environ.get("SYNTHTIQ_VOICE_ENABLE_CUDA") != "1":
+        cuda_allowed = settings.developerMode and settings.developerCudaEnabled
+        env_allowed = os.environ.get("SYNTHETIQ_VOICE_ENABLE_CUDA") == "1"
+        legacy_env_allowed = os.environ.get("SYNTHTIQ_VOICE_ENABLE_CUDA") == "1"
+        if not (cuda_allowed or env_allowed or legacy_env_allowed):
             log("CUDA requested but disabled for stability; falling back to CPU INT8")
             return "cpu", "int8"
         return "cuda", "float16"
@@ -329,6 +346,39 @@ def models():
     return {"models": rows, "active": model_key, "selected": settings.modelSize}
 
 
+@app.delete("/models")
+def delete_model(request: ModelDeleteRequest):
+    global model, model_key, worker_status
+    if request.modelSize not in MODEL_CACHE_DIRS:
+        raise HTTPException(status_code=400, detail="Unknown model.")
+
+    paths = model_cache_paths(request.modelSize)
+    if not paths:
+        return {"ok": True, "deleted": [], "message": "Model is not downloaded."}
+
+    if model_key and model_key[0] == request.modelSize:
+        model = None
+        model_key = None
+        gc.collect()
+
+    worker_status = f"deleting {request.modelSize}"
+    deleted = []
+    try:
+        for path in paths:
+            cache_root = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")) / "hub"
+            resolved_path = path.resolve()
+            resolved_root = cache_root.resolve()
+            if resolved_root not in resolved_path.parents:
+                raise HTTPException(status_code=400, detail="Refusing to delete outside the Hugging Face model cache.")
+            shutil.rmtree(resolved_path)
+            deleted.append(str(resolved_path))
+        worker_status = "ready"
+        return {"ok": True, "model": request.modelSize, "deleted": deleted}
+    except Exception as error:
+        worker_status = "ready"
+        raise HTTPException(status_code=500, detail=str(error))
+
+
 @app.post("/models/download")
 def download_model(request: ModelDownloadRequest):
     global settings, worker_status
@@ -341,6 +391,8 @@ def download_model(request: ModelDownloadRequest):
             computeType=request.computeType,
             language=previous.language,
             debugKeepAudio=previous.debugKeepAudio,
+            developerMode=previous.developerMode,
+            developerCudaEnabled=previous.developerCudaEnabled,
         )
         worker_status = f"downloading/loading {request.modelSize}"
         started = time.time()

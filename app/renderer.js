@@ -11,10 +11,12 @@ const clearEl = document.getElementById('clear');
 const refreshEl = document.getElementById('refresh');
 const findMicEl = document.getElementById('findMic');
 const settingsButtonEl = document.getElementById('settingsButton');
+const developerButtonEl = document.getElementById('developerButton');
 const startNewEl = document.getElementById('startNew');
 const historyButtonEl = document.getElementById('historyButton');
 const dictationViewEl = document.getElementById('dictationView');
 const historyViewEl = document.getElementById('historyView');
+const developerViewEl = document.getElementById('developerView');
 const historyTextEl = document.getElementById('historyText');
 const addModeEl = document.getElementById('addMode');
 const transcriptEl = document.getElementById('transcript');
@@ -30,6 +32,12 @@ const finishSetupEl = document.getElementById('finishSetup');
 const settingsDialogEl = document.getElementById('settingsDialog');
 const startWithWindowsEl = document.getElementById('startWithWindows');
 const useRecommendedButtonEl = document.getElementById('useRecommendedButton');
+const openDeveloperEl = document.getElementById('openDeveloper');
+const backToSettingsEl = document.getElementById('backToSettings');
+const developerModeEl = document.getElementById('developerMode');
+const developerCudaEl = document.getElementById('developerCuda');
+const refreshGpuEl = document.getElementById('refreshGpu');
+const gpuStatusEl = document.getElementById('gpuStatus');
 const modelInfoEl = document.getElementById('modelInfo');
 const orbEl = document.getElementById('orb');
 const waveEls = Array.from(document.querySelectorAll('.wave'));
@@ -87,6 +95,22 @@ function setProgress(mode, text, value = 0) {
 
 function setDone(text) {
   doneMarkEl.textContent = text;
+}
+
+function updateDeveloperUi() {
+  const developerMode = Boolean(settings.developerMode);
+  developerButtonEl.classList.toggle('visible', developerMode);
+  developerModeEl.checked = developerMode;
+  developerCudaEl.checked = Boolean(settings.developerCudaEnabled);
+  developerCudaEl.disabled = !developerMode;
+
+  const cudaOption = computeDeviceEl.querySelector('option[value="cuda"]');
+  if (cudaOption) {
+    cudaOption.hidden = !developerMode || !settings.developerCudaEnabled;
+  }
+  if ((!developerMode || !settings.developerCudaEnabled) && computeDeviceEl.value === 'cuda') {
+    computeDeviceEl.value = 'cpu';
+  }
 }
 
 function startProgressLoop() {
@@ -161,11 +185,14 @@ function saveTranscriptHistory(text) {
 
 function setView(viewName) {
   const historyActive = viewName === 'history';
-  dictationViewEl.classList.toggle('active', !historyActive);
+  const developerActive = viewName === 'developer';
+  dictationViewEl.classList.toggle('active', !historyActive && !developerActive);
   historyViewEl.classList.toggle('active', historyActive);
-  startNewEl.classList.toggle('active', !historyActive);
+  developerViewEl.classList.toggle('active', developerActive);
+  startNewEl.classList.toggle('active', !historyActive && !developerActive);
   historyButtonEl.classList.toggle('active', historyActive);
-  settingsButtonEl.classList.remove('active');
+  settingsButtonEl.classList.toggle('active', false);
+  developerButtonEl.classList.toggle('active', developerActive);
 }
 
 function showHistory() {
@@ -189,9 +216,12 @@ async function saveSettings() {
     computeDevice: computeDeviceEl.value,
     addMode: addModeEl.checked,
     startWithWindows: Boolean(settings.startWithWindows),
-    setupComplete: Boolean(settings.setupComplete)
+    setupComplete: Boolean(settings.setupComplete),
+    developerMode: Boolean(settings.developerMode),
+    developerCudaEnabled: Boolean(settings.developerCudaEnabled)
   });
   await window.dictation.configure(settings);
+  updateDeveloperUi();
 }
 
 function renderModelInfo(models) {
@@ -215,10 +245,29 @@ function renderModelInfo(models) {
           <span>${model.speed}</span>
           <span>${status}</span>
         </div>
-        <button class="model-action" type="button" data-model="${model.id}" ${model.active ? 'disabled' : ''}>${action}</button>
+        <div class="model-card-actions">
+          <button class="model-action" type="button" data-model="${model.id}" ${model.active ? 'disabled' : ''}>${action}</button>
+          ${model.downloaded ? `<button class="model-delete" type="button" data-delete-model="${model.id}">Delete</button>` : ''}
+        </div>
       </article>
     `;
   }).join('');
+}
+
+async function refreshGpuStatus() {
+  gpuStatusEl.textContent = 'Checking GPU...';
+  try {
+    const status = await window.dictation.gpuStatus();
+    if (!status.available) {
+      gpuStatusEl.textContent = status.message || 'No NVIDIA GPU detected.';
+      return;
+    }
+    gpuStatusEl.textContent = status.gpus
+      .map((gpu) => `${gpu.name} - driver ${gpu.driver}, ${gpu.memory}`)
+      .join('\n');
+  } catch (error) {
+    gpuStatusEl.textContent = `GPU check failed: ${error.message}`;
+  }
 }
 
 async function refreshModels() {
@@ -251,14 +300,12 @@ async function boot() {
   try {
     settings = await window.dictation.getSettings();
     modelEl.value = settings.modelSize || 'small.en';
-    computeDeviceEl.value = settings.computeDevice === 'cuda' ? 'cpu' : (settings.computeDevice || 'cpu');
-    if (settings.computeDevice === 'cuda') {
-      settings = await window.dictation.setSettings({ ...settings, computeDevice: 'cpu', computeType: 'int8' });
-    }
+    computeDeviceEl.value = settings.computeDevice || 'cpu';
     addModeEl.checked = Boolean(settings.addMode);
     startWithWindowsEl.checked = Boolean(settings.startWithWindows);
     setupAutoStartEl.checked = Boolean(settings.startWithWindows);
     setupModelEl.value = settings.modelSize || 'small.en';
+    updateDeveloperUi();
 
     let ready = false;
     for (let i = 0; i < 40; i += 1) {
@@ -399,6 +446,7 @@ settingsButtonEl.addEventListener('click', async () => {
   startNewEl.classList.remove('active');
   historyButtonEl.classList.remove('active');
   settingsButtonEl.classList.add('active');
+  developerButtonEl.classList.remove('active');
   settingsDialogEl.showModal();
 });
 finishSetupEl.addEventListener('click', async (event) => {
@@ -410,6 +458,8 @@ finishSetupEl.addEventListener('click', async (event) => {
       modelSize: setupModelEl.value,
       computeDevice: 'cpu',
       computeType: 'int8',
+      developerMode: false,
+      developerCudaEnabled: false,
       setupComplete: true
     });
     await window.dictation.setStartup(setupAutoStartEl.checked);
@@ -457,8 +507,8 @@ async function activateModel(modelId) {
     setStatus(`Downloading/loading ${selected}. This may take a few minutes the first time.`);
     const result = await window.dictation.downloadModel({
       modelSize: selected,
-      computeDevice: computeDeviceEl.value === 'cuda' ? 'cpu' : (computeDeviceEl.value || 'cpu'),
-      computeType: 'int8'
+      computeDevice: computeDeviceEl.value || 'cpu',
+      computeType: computeDeviceEl.value === 'cuda' ? 'float16' : 'int8'
     });
     await saveSettings();
     await refreshModels();
@@ -474,6 +524,14 @@ async function activateModel(modelId) {
 }
 
 modelInfoEl.addEventListener('click', async (event) => {
+  const deleteButton = event.target.closest('.model-delete');
+  if (deleteButton) {
+    deleteButton.disabled = true;
+    await deleteModel(deleteButton.dataset.deleteModel);
+    deleteButton.disabled = false;
+    return;
+  }
+
   const button = event.target.closest('.model-action');
   if (!button) return;
   button.disabled = true;
@@ -481,9 +539,77 @@ modelInfoEl.addEventListener('click', async (event) => {
   button.disabled = false;
 });
 
+async function deleteModel(modelId) {
+  const model = modelCatalog.find((item) => item.id === modelId);
+  const label = model?.label || modelId;
+  const ok = window.confirm(`Delete ${label} from this device? You can download it again later.`);
+  if (!ok) return;
+
+  try {
+    operationStartedAt = Date.now();
+    operationLabel = `Deleting ${label}...`;
+    startProgressLoop();
+    setProgress('indeterminate', `Deleting ${label}...`);
+    setStatus(`Deleting ${label} from the local model cache...`);
+    await window.dictation.deleteModel({ modelSize: modelId });
+    if (modelEl.value === modelId) {
+      modelEl.value = 'small.en';
+      computeDeviceEl.value = computeDeviceEl.value === 'cuda' ? 'cpu' : computeDeviceEl.value;
+      await saveSettings();
+    }
+    await refreshModels();
+    setProgress('determinate', 'Model deleted', 100);
+    setStatus(`${label} deleted from this device.`);
+  } catch (error) {
+    setStatus(`Model delete failed: ${error.message}`);
+  } finally {
+    operationStartedAt = 0;
+    operationLabel = '';
+    setTimeout(stopProgressLoop, 1200);
+  }
+}
+
 useRecommendedButtonEl.addEventListener('click', async () => {
   computeDeviceEl.value = 'cpu';
   await activateModel('small.en');
+});
+
+openDeveloperEl.addEventListener('click', async () => {
+  settingsDialogEl.close();
+  setView('developer');
+  settingsButtonEl.classList.remove('active');
+  developerButtonEl.classList.add('active');
+  await refreshGpuStatus();
+});
+
+developerButtonEl.addEventListener('click', async () => {
+  setView('developer');
+  await refreshGpuStatus();
+});
+
+backToSettingsEl.addEventListener('click', async () => {
+  settingsButtonEl.click();
+});
+
+refreshGpuEl.addEventListener('click', refreshGpuStatus);
+
+developerModeEl.addEventListener('change', async () => {
+  settings.developerMode = developerModeEl.checked;
+  if (!settings.developerMode) {
+    settings.developerCudaEnabled = false;
+    computeDeviceEl.value = 'cpu';
+  }
+  await saveSettings();
+  setStatus(settings.developerMode ? 'Developer options enabled' : 'Developer options disabled');
+});
+
+developerCudaEl.addEventListener('change', async () => {
+  settings.developerCudaEnabled = developerCudaEl.checked;
+  computeDeviceEl.value = settings.developerCudaEnabled ? 'cuda' : 'cpu';
+  settings.computeDevice = computeDeviceEl.value;
+  settings.computeType = settings.developerCudaEnabled ? 'float16' : 'int8';
+  await saveSettings();
+  setStatus(settings.developerCudaEnabled ? 'CUDA mode enabled. If it crashes, return here and turn it off.' : 'CUDA mode disabled');
 });
 
 for (const el of [deviceEl, modelEl, computeDeviceEl, addModeEl]) {

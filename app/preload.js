@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('dictation', {
   deviceLevels: () => ipcRenderer.invoke('worker:deviceLevels'),
   models: () => ipcRenderer.invoke('worker:models'),
   downloadModel: (payload) => ipcRenderer.invoke('worker:downloadModel', payload),
+  deleteModel: (payload) => ipcRenderer.invoke('worker:deleteModel', payload),
+  gpuStatus: () => ipcRenderer.invoke('system:gpuStatus'),
   configure: (settings) => ipcRenderer.invoke('worker:configure', settings),
   startRecording: (payload) => ipcRenderer.invoke('record:start', payload),
   stopRecording: () => ipcRenderer.invoke('record:stop'),

@@ -28,6 +28,9 @@
         <button id="settingsButton" class="nav-item" type="button">
           <span>Settings</span>
         </button>
+        <button id="developerButton" class="nav-item developer-nav" type="button">
+          <span>Developer</span>
+        </button>
       </nav>
 
     </aside>
@@ -57,6 +60,7 @@
                 <select id="computeDevice">
                   <option value="cpu">CPU</option>
                   <option value="auto">Auto</option>
+                  <option value="cuda" data-developer-option>CUDA GPU</option>
                 </select>
               </label>
               <div class="input-buttons">
@@ -118,6 +122,42 @@
       <section id="historyView" class="view history-view">
         <textarea id="historyText" readonly placeholder="Your transcription history will appear here after you record something."></textarea>
       </section>
+
+      <section id="developerView" class="view developer-view">
+        <header class="page-heading">
+          <div>
+            <span>Developer</span>
+            <h2>GPU transcription</h2>
+          </div>
+          <button id="backToSettings" type="button">Back to Settings</button>
+        </header>
+        <section class="developer-panel">
+          <label class="switch-row">
+            <span>
+              <strong>Enable developer options</strong>
+              <small>Unlock experimental controls for CUDA and diagnostics.</small>
+            </span>
+            <input id="developerMode" type="checkbox">
+          </label>
+          <label class="switch-row">
+            <span>
+              <strong>Allow CUDA GPU mode</strong>
+              <small>Use only if your NVIDIA driver and CUDA runtime are stable with faster-whisper.</small>
+            </span>
+            <input id="developerCuda" type="checkbox">
+          </label>
+          <div class="gpu-card">
+            <div class="gpu-card-heading">
+              <strong>Detected GPU</strong>
+              <button id="refreshGpu" type="button">Refresh</button>
+            </div>
+            <div id="gpuStatus" class="gpu-status">Checking GPU...</div>
+          </div>
+          <p class="developer-note">
+            CUDA can be much faster than CPU, especially for medium and large models, but it depends on NVIDIA driver support, CUDA/cuDNN libraries, and the faster-whisper runtime. If it crashes, switch back to CPU.
+          </p>
+        </section>
+      </section>
     </section>
   </main>
 
@@ -159,6 +199,7 @@
         <p class="settings-note">Small English is the fastest reliable option for local dictation. Larger models are optional and may take longer to download or run.</p>
         <div id="modelInfo" class="model-grid"></div>
       </section>
+      <button id="openDeveloper" class="secondary-wide" type="button">Developer Options</button>
       <div class="dialog-actions">
         <button value="cancel">Close</button>
       </div>

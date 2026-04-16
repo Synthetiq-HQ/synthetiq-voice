@@ -41,6 +41,8 @@ function readSettings() {
     computeType: 'int8',
     language: 'en',
     debugKeepAudio: false,
+    developerMode: false,
+    developerCudaEnabled: false,
     setupComplete: false,
     startWithWindows: false
   };
@@ -119,6 +121,41 @@ function startWorker() {
         startWorker();
       }, 1200);
     }
+  });
+}
+
+function gpuStatus() {
+  return new Promise((resolve) => {
+    const child = spawn('nvidia-smi.exe', [
+      '--query-gpu=name,driver_version,memory.total',
+      '--format=csv,noheader'
+    ], { windowsHide: true });
+    let output = '';
+    let errorOutput = '';
+    child.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+    child.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+    child.on('error', (error) => {
+      resolve({ available: false, gpus: [], message: error.message });
+    });
+    child.on('exit', (code) => {
+      if (code !== 0) {
+        resolve({ available: false, gpus: [], message: errorOutput.trim() || 'nvidia-smi did not report an NVIDIA GPU.' });
+        return;
+      }
+      const gpus = output.trim().split(/\r?\n/).filter(Boolean).map((line) => {
+        const [name, driver, memory] = line.split(',').map((part) => part.trim());
+        return { name, driver, memory };
+      });
+      resolve({
+        available: gpus.length > 0,
+        gpus,
+        message: gpus.length ? `${gpus.length} NVIDIA GPU${gpus.length === 1 ? '' : 's'} detected.` : 'No NVIDIA GPUs detected.'
+      });
+    });
   });
 }
 
@@ -274,6 +311,12 @@ ipcMain.handle('worker:downloadModel', (_event, payload) => requestWorker('/mode
   body: JSON.stringify(payload),
   timeoutMs: 1800000
 }));
+ipcMain.handle('worker:deleteModel', (_event, payload) => requestWorker('/models', {
+  method: 'DELETE',
+  body: JSON.stringify(payload),
+  timeoutMs: 120000
+}));
+ipcMain.handle('system:gpuStatus', () => gpuStatus());
 ipcMain.handle('worker:configure', (_event, settings) => requestWorker('/settings', {
   method: 'POST',
   body: JSON.stringify(settings)
