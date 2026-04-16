@@ -165,6 +165,7 @@ function setView(viewName) {
   historyViewEl.classList.toggle('active', historyActive);
   startNewEl.classList.toggle('active', !historyActive);
   historyButtonEl.classList.toggle('active', historyActive);
+  settingsButtonEl.classList.remove('active');
 }
 
 function showHistory() {
@@ -395,6 +396,9 @@ settingsButtonEl.addEventListener('click', async () => {
   } catch {
     modelInfoEl.textContent = 'Model list unavailable until the worker is ready.';
   }
+  startNewEl.classList.remove('active');
+  historyButtonEl.classList.remove('active');
+  settingsButtonEl.classList.add('active');
   settingsDialogEl.showModal();
 });
 finishSetupEl.addEventListener('click', async (event) => {
