@@ -13,7 +13,8 @@ It is designed for quick messages, coding with AI assistants, notes, support rep
 - Read-only transcript until you choose Edit
 - Add To mode for continuing a transcript
 - Active microphone finder and live mic level meter
-- Model picker with explicit model download/preload
+- Model picker with explicit model download, preload, and delete controls
+- Developer CUDA mode with smart CPU routing for tiny models
 - Optional start with Windows
 - Temporary audio is deleted after transcription by default
 
@@ -21,7 +22,7 @@ It is designed for quick messages, coding with AI assistants, notes, support rep
 
 The default model is `small.en` on CPU INT8.
 
-That is the best current default for this app because it stays around the sub-1 GB target, responds quickly on normal Windows hardware, and gives good English dictation quality. CUDA can be faster for larger models, but it needs the correct NVIDIA CUDA/cuDNN runtime and can be less reliable for a lightweight tray app setup.
+That is the best current default for this app because it stays around the sub-1 GB target, responds quickly on normal Windows hardware, and gives good English dictation quality. Developer CUDA mode can be faster for `medium.en`, `distil-large-v3`, and `large-v3-turbo`, but it needs the correct NVIDIA CUDA/cuDNN runtime. `base.en` and `small.en` are routed to CPU INT8 even when CUDA is enabled because GPU startup overhead is usually slower for short dictation clips.
 
 Available model presets:
 
@@ -55,6 +56,8 @@ Start the app:
 
 The first model download can take a few minutes. After that, the model is cached locally. For the best first-run experience, start with `small.en`. Larger models are optional and can take much longer to download.
 
+Downloaded models can be removed from Settings. Deleting a model removes only the known local Hugging Face cache folders for that model; it can be downloaded again later.
+
 ## Usage
 
 1. Open Synthetiq Voice from the tray icon.
@@ -64,6 +67,7 @@ The first model download can take a few minutes. After that, the model is cached
 5. Click Stop.
 6. Review the transcript.
 7. Use Edit, Copy, Paste, Clear, or Add To.
+8. Use Settings > Developer Options to enable experimental CUDA support. If CUDA fails during transcription, the worker retries once on CPU.
 
 ## Privacy
 

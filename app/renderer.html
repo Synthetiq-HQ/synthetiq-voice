@@ -154,7 +154,7 @@
             <div id="gpuStatus" class="gpu-status">Checking GPU...</div>
           </div>
           <p class="developer-note">
-            CUDA can be much faster than CPU, especially for medium and large models, but it depends on NVIDIA driver support, CUDA/cuDNN libraries, and the faster-whisper runtime. If it crashes, switch back to CPU.
+            CUDA can be much faster than CPU for Medium, Distil Large v3, and Large v3 Turbo. Base and Small stay on CPU for short dictation because GPU startup overhead is usually slower. If CUDA crashes, Synthetiq Voice retries once on CPU.
           </p>
         </section>
       </section>

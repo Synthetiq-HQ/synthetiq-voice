@@ -52,6 +52,12 @@ class ModelDeleteRequest(BaseModel):
     modelSize: str
 
 
+class ModelPreloadRequest(BaseModel):
+    modelSize: Optional[str] = None
+    computeDevice: Optional[str] = None
+    computeType: Optional[str] = None
+
+
 class StartRequest(BaseModel):
     deviceId: Optional[int] = None
 
@@ -84,6 +90,7 @@ worker_status = "ready"
 last_level = {"rms": 0.0, "peak": 0.0, "updated_at": 0.0}
 last_result = {}
 worker_log_path = RUNTIME / "worker.log"
+GPU_BENEFIT_MODELS = {"medium.en", "distil-large-v3", "large-v3-turbo"}
 
 
 def log(message: str):
@@ -207,6 +214,9 @@ def choose_compute() -> tuple[str, str]:
         if not (cuda_allowed or env_allowed or legacy_env_allowed):
             log("CUDA requested but disabled for stability; falling back to CPU INT8")
             return "cpu", "int8"
+        if settings.modelSize not in GPU_BENEFIT_MODELS:
+            log(f"CUDA requested for {settings.modelSize}; using CPU INT8 because small models are faster and more stable on CPU for short dictation")
+            return "cpu", "int8"
         return "cuda", "float16"
     return "cpu", "int8"
 
@@ -224,9 +234,11 @@ def load_model():
     try:
         worker_status = f"loading model {settings.modelSize} on {device}"
         log(worker_status)
-        model = WhisperModel(settings.modelSize, device=device, compute_type=compute_type)
+        load_started = time.time()
+        model = WhisperModel(settings.modelSize, device=device, compute_type=compute_type, num_workers=1)
         model_key = desired_key
         worker_status = "ready"
+        log(f"loaded model {model_key} in {time.time() - load_started:.2f}s")
         return model
     except Exception as cuda_error:
         log(f"model load failed on {device}: {cuda_error}")
@@ -236,9 +248,11 @@ def load_model():
         try:
             worker_status = f"loading model {settings.modelSize} on cpu"
             log(worker_status)
-            model = WhisperModel(settings.modelSize, device="cpu", compute_type="int8")
+            load_started = time.time()
+            model = WhisperModel(settings.modelSize, device="cpu", compute_type="int8", num_workers=1)
             model_key = (settings.modelSize, "cpu", "int8")
             worker_status = "ready"
+            log(f"loaded fallback model {model_key} in {time.time() - load_started:.2f}s")
             return model
         except Exception as cpu_error:
             worker_status = "ready"
@@ -405,6 +419,101 @@ def download_model(request: ModelDownloadRequest):
         raise HTTPException(status_code=500, detail=str(error))
 
 
+@app.post("/models/preload")
+def preload_model(request: ModelPreloadRequest):
+    global settings, worker_status
+    previous = settings
+    try:
+        if request.modelSize or request.computeDevice or request.computeType:
+            settings = Settings(
+                selectedDeviceId=previous.selectedDeviceId,
+                modelSize=request.modelSize or previous.modelSize,
+                computeDevice=request.computeDevice or previous.computeDevice,
+                computeType=request.computeType or previous.computeType,
+                language=previous.language,
+                debugKeepAudio=previous.debugKeepAudio,
+                developerMode=previous.developerMode,
+                developerCudaEnabled=previous.developerCudaEnabled,
+            )
+        worker_status = f"preloading {settings.modelSize}"
+        started = time.time()
+        load_model()
+        elapsed = time.time() - started
+        worker_status = "ready"
+        settings = previous
+        return {"ok": True, "model": model_key, "seconds": elapsed}
+    except Exception as error:
+        worker_status = "ready"
+        settings = previous
+        raise HTTPException(status_code=500, detail=str(error))
+
+
+def transcribe_audio(wav_path: Path):
+    global settings, worker_status, last_result
+    selected_settings = settings
+    whisper_model = load_model()
+    worker_status = "transcribing"
+    started = time.time()
+    log(f"transcribing {wav_path.name} with model={model_key}")
+    try:
+        segments, info = whisper_model.transcribe(
+            str(wav_path),
+            language=settings.language or None,
+            vad_filter=False,
+            beam_size=1,
+            best_of=1,
+            temperature=0.0,
+            condition_on_previous_text=False,
+            without_timestamps=True,
+            word_timestamps=False,
+        )
+        segment_rows = [
+            {"start": segment.start, "end": segment.end, "text": segment.text.strip()}
+            for segment in segments
+        ]
+        log(f"transcribed {wav_path.name} with model={model_key} in {time.time() - started:.2f}s")
+        return segment_rows, info, False, ""
+    except Exception as cuda_error:
+        log("transcription failed: " + repr(cuda_error))
+        log(traceback.format_exc())
+        if not model_key or model_key[1] != "cuda":
+            raise
+
+        fallback_started = time.time()
+        log("CUDA transcription failed; retrying once on CPU INT8")
+        try:
+            settings = Settings(
+                selectedDeviceId=selected_settings.selectedDeviceId,
+                modelSize=selected_settings.modelSize,
+                computeDevice="cpu",
+                computeType="int8",
+                language=selected_settings.language,
+                debugKeepAudio=selected_settings.debugKeepAudio,
+                developerMode=selected_settings.developerMode,
+                developerCudaEnabled=selected_settings.developerCudaEnabled,
+            )
+            whisper_model = load_model()
+            segments, info = whisper_model.transcribe(
+                str(wav_path),
+                language=settings.language or None,
+                vad_filter=False,
+                beam_size=1,
+                best_of=1,
+                temperature=0.0,
+                condition_on_previous_text=False,
+                without_timestamps=True,
+                word_timestamps=False,
+            )
+            segment_rows = [
+                {"start": segment.start, "end": segment.end, "text": segment.text.strip()}
+                for segment in segments
+            ]
+            log(f"CPU fallback transcribed {wav_path.name} in {time.time() - fallback_started:.2f}s")
+            return segment_rows, info, True, str(cuda_error)
+        finally:
+            settings = selected_settings
+
+
 @app.get("/devices/levels")
 def device_levels():
     try:
@@ -535,26 +644,12 @@ def stop_recording():
     try:
         try:
             worker_status = "loading model"
-            whisper_model = load_model()
-            worker_status = "transcribing"
-            log(f"transcribing {wav_path.name} with model={model_key}")
-            segments, info = whisper_model.transcribe(
-                str(wav_path),
-                language=settings.language or None,
-                vad_filter=False,
-                beam_size=1,
-                temperature=0.0,
-                condition_on_previous_text=False,
-            )
+            segment_rows, info, used_fallback, fallback_reason = transcribe_audio(wav_path)
         except Exception as error:
             worker_status = "ready"
             log("transcription failed: " + repr(error))
             log(traceback.format_exc())
             raise HTTPException(status_code=500, detail=str(error))
-        segment_rows = [
-            {"start": segment.start, "end": segment.end, "text": segment.text.strip()}
-            for segment in segments
-        ]
         text = " ".join(row["text"] for row in segment_rows).strip()
         worker_status = "ready"
         last_result = {
@@ -564,6 +659,8 @@ def stop_recording():
             "peak": peak,
             "language": getattr(info, "language", None),
             "model": model_key,
+            "used_fallback": used_fallback,
+            "fallback_reason": fallback_reason,
             "reason": "" if text else "Audio was captured, but Whisper returned no text. Try speaking longer or louder.",
         }
         return {**last_result, "segments": segment_rows}

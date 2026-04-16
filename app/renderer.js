@@ -75,6 +75,10 @@ function setAudioVisualLevel(peak) {
   });
 }
 
+function gpuIsUsefulForModel(modelId) {
+  return ['medium.en', 'distil-large-v3', 'large-v3-turbo'].includes(modelId);
+}
+
 function formatDuration(seconds) {
   const total = Math.max(0, Math.floor(seconds));
   const hours = String(Math.floor(total / 3600)).padStart(2, '0');
@@ -270,6 +274,34 @@ async function refreshGpuStatus() {
   }
 }
 
+async function preloadSelectedModel(reason = 'Preloading model...') {
+  try {
+    operationStartedAt = Date.now();
+    operationLabel = reason;
+    startProgressLoop();
+    setProgress('indeterminate', reason);
+    const result = await window.dictation.preloadModel({
+      modelSize: modelEl.value,
+      computeDevice: computeDeviceEl.value || 'cpu',
+      computeType: computeDeviceEl.value === 'cuda' ? 'float16' : 'int8'
+    });
+    const loaded = Array.isArray(result.model) ? result.model : [];
+    const device = loaded[1] || computeDeviceEl.value || 'cpu';
+    if (computeDeviceEl.value === 'cuda' && device === 'cpu') {
+      setStatus('Ready. Small/Base models are kept on CPU because that is faster for short dictation.');
+    } else {
+      setStatus(`Ready. Model preloaded in ${Number(result.seconds || 0).toFixed(1)}s.`);
+    }
+    setProgress('determinate', 'Model ready', 100);
+  } catch (error) {
+    setStatus(`Model preload failed: ${error.message}`);
+  } finally {
+    operationStartedAt = 0;
+    operationLabel = '';
+    setTimeout(stopProgressLoop, 1200);
+  }
+}
+
 async function refreshModels() {
   const modelResponse = await window.dictation.models();
   renderModelInfo(modelResponse.models || []);
@@ -366,7 +398,11 @@ async function stopRecording() {
       setProgress('determinate', 'Complete', 100);
       setDone('Done');
       timerEl.textContent = formatDuration(response.duration || 0);
-      setStatus(`Ready. Audio level peak ${Number(response.peak || 0).toFixed(3)}.`);
+      if (response.used_fallback) {
+        setStatus(`Ready. CUDA failed and CPU finished it. Peak ${Number(response.peak || 0).toFixed(3)}.`);
+      } else {
+        setStatus(`Ready. Audio level peak ${Number(response.peak || 0).toFixed(3)}.`);
+      }
     } else {
       setProgress('determinate', 'No text', 100);
       setDone('No text');
@@ -514,6 +550,9 @@ async function activateModel(modelId) {
     await refreshModels();
     setProgress('determinate', 'Model ready', 100);
     setStatus(`Model ready in ${Number(result.seconds || 0).toFixed(1)}s`);
+    if (computeDeviceEl.value === 'cuda') {
+      await preloadSelectedModel(gpuIsUsefulForModel(selected) ? 'Warming CUDA model...' : 'Warming low-latency CPU route...');
+    }
   } catch (error) {
     setStatus(`Model download failed: ${error.message}`);
   } finally {
@@ -609,7 +648,15 @@ developerCudaEl.addEventListener('change', async () => {
   settings.computeDevice = computeDeviceEl.value;
   settings.computeType = settings.developerCudaEnabled ? 'float16' : 'int8';
   await saveSettings();
-  setStatus(settings.developerCudaEnabled ? 'CUDA mode enabled. If it crashes, return here and turn it off.' : 'CUDA mode disabled');
+  if (settings.developerCudaEnabled) {
+    const message = gpuIsUsefulForModel(modelEl.value)
+      ? 'CUDA mode enabled. Warming the selected model...'
+      : 'CUDA mode enabled. Small/Base models will still use CPU for short dictation.';
+    setStatus(message);
+    await preloadSelectedModel(gpuIsUsefulForModel(modelEl.value) ? 'Warming CUDA model...' : 'Warming low-latency CPU route...');
+  } else {
+    setStatus('CUDA mode disabled');
+  }
 });
 
 for (const el of [deviceEl, modelEl, computeDeviceEl, addModeEl]) {

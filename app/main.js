@@ -311,6 +311,11 @@ ipcMain.handle('worker:downloadModel', (_event, payload) => requestWorker('/mode
   body: JSON.stringify(payload),
   timeoutMs: 1800000
 }));
+ipcMain.handle('worker:preloadModel', (_event, payload) => requestWorker('/models/preload', {
+  method: 'POST',
+  body: JSON.stringify(payload || {}),
+  timeoutMs: 300000
+}));
 ipcMain.handle('worker:deleteModel', (_event, payload) => requestWorker('/models', {
   method: 'DELETE',
   body: JSON.stringify(payload),
